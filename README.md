@@ -2,7 +2,6 @@
 
 A fullscreen photo frame application for Raspberry Pi (and other Linux/X11 systems) that displays photos directly from your [Immich](https://immich.app) server. No files are copied to the device — images are streamed on demand and held only in RAM.
 
-![Photo frame showing image with date overlay, image counter, folder name and QR code](https://placeholder)
 
 ---
 
