@@ -14,10 +14,6 @@
 
 #include <opencv2/opencv.hpp>
 #include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xatom.h>
-#include <X11/cursorfont.h>
-#include <X11/extensions/Xfixes.h>
 
 #include "json.hpp"
 #include "ImmichClient.h"
@@ -32,9 +28,8 @@ static bool gIsPressed    = false;
 static bool gPendingClick = false;
 static int  gClickX       = 0;
 static int  gClickY       = 0;
-static int      gScreenWidth  = 1920;
-static int      gScreenHeight = 1200;
-static Display* gCursorDpy    = nullptr; // kept open to hold XFixesHideCursor
+static int gScreenWidth  = 1920;
+static int gScreenHeight = 1200;
 
 static void onMouse(int event, int x, int y, int, void*)
 {
@@ -47,60 +42,16 @@ static void onMouse(int event, int x, int y, int, void*)
 }
 
 // ---------------------------------------------------------------------------
-// X11: hide cursor, read screen size
+// X11: read screen size
 // ---------------------------------------------------------------------------
-static void hideCursorInWindow(Display* dpy, Window win)
+static void initWindow(const std::string&)
 {
-    Pixmap pm = XCreatePixmap(dpy, win, 1, 1, 1);
-    XColor black{}; black.flags = DoRed | DoGreen | DoBlue;
-    Cursor inv = XCreatePixmapCursor(dpy, pm, pm, &black, &black, 0, 0);
-    XDefineCursor(dpy, win, inv);
-    XFlush(dpy);
-    XFreePixmap(dpy, pm);
-}
-
-static void initWindow(const std::string& name)
-{
-    // NOTE: gCursorDpy is intentionally never closed. XFixesHideCursor is
-    // reference-counted per client — closing the connection would undo the hide.
-    gCursorDpy = XOpenDisplay(nullptr);
-    if (!gCursorDpy) { std::cerr << "Cannot open X display\n"; return; }
-    Display* dpy = gCursorDpy;
-
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) { std::cerr << "Cannot open X display\n"; return; }
     Screen* screen = DefaultScreenOfDisplay(dpy);
     gScreenWidth  = screen->width;
     gScreenHeight = screen->height;
-
-    // Hide cursor at the X server level. Cannot be overridden by the WM.
-    // The connection must stay open for this to remain in effect.
-    XFixesHideCursor(dpy, DefaultRootWindow(dpy));
-    // Also set an invisible pixmap cursor as belt-and-suspenders.
-    hideCursorInWindow(dpy, DefaultRootWindow(dpy));
-    // Warp cursor to bottom-right corner so it's physically out of view.
-    XWarpPointer(dpy, None, DefaultRootWindow(dpy), 0, 0, 0, 0, 9999, 9999);
-    XFlush(dpy);
-
-    // Also hide on the OpenCV window itself once it appears.
-    for (int attempt = 0; attempt < 10; ++attempt) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
-        Window root = DefaultRootWindow(dpy), parent;
-        Window* children = nullptr; unsigned int n = 0;
-        if (XQueryTree(dpy, root, &root, &parent, &children, &n)) {
-            for (unsigned int i = 0; i < n; ++i) {
-                char* xname = nullptr;
-                if (XFetchName(dpy, children[i], &xname) && xname) {
-                    if (name == xname) {
-                        hideCursorInWindow(dpy, children[i]);
-                        XFree(xname);
-                        if (children) XFree(children);
-                        return;
-                    }
-                    XFree(xname);
-                }
-            }
-            if (children) XFree(children);
-        }
-    }
+    XCloseDisplay(dpy);
 }
 
 // ---------------------------------------------------------------------------
@@ -308,18 +259,9 @@ int main()
     std::atomic<bool> watcherStop{false};
     std::thread watcherThread(watchConfig, std::string("config.json"), std::ref(watcherStop));
 
-    // Periodically warp cursor back to corner in case something moved it.
-    int warpCounter = 0;
-
     while (true) {
         int key = cv::waitKey(10);
         if (key == 27) break;  // ESC
-
-        if (gCursorDpy && ++warpCounter >= 100) {  // ~every 1 second
-            warpCounter = 0;
-            XWarpPointer(gCursorDpy, None, DefaultRootWindow(gCursorDpy), 0, 0, 0, 0, 9999, 9999);
-            XFlush(gCursorDpy);
-        }
 
         // ---- Config hot-reload -------------------------------------------
         if (gConfigChanged.exchange(false)) {
