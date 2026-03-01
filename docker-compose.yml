@@ -1,0 +1,36 @@
+services:
+  photoframe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: immich-photoframe
+
+    # ---- Display (X11) -----------------------------------------------------
+    # The app opens a fullscreen OpenCV window directly on the host X11 server.
+    # Before starting the container, allow the Docker user to connect:
+    #   xhost +local:docker
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+
+    volumes:
+      # X11 socket — required for the window to appear on the host screen
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+
+      # Persistent config — edit this file on the host; the container reads it
+      - ./config.json:/app/config.json:ro
+
+      # Persistent DB — stores visited asset IDs and cached share-link keys
+      # Create an empty file if it doesn't exist yet:
+      #   touch db.json
+      - ./db.json:/app/db.json:rw
+
+    # ---- Network -----------------------------------------------------------
+    # host mode lets the container reach the Immich server on your LAN
+    # (e.g. http://192.168.16.7:2283) without any port-forwarding config.
+    network_mode: host
+
+    # ---- Lifecycle ---------------------------------------------------------
+    restart: unless-stopped
+
+    # Optional: limit memory so the Pi doesn't swap under load
+    # mem_limit: 256m

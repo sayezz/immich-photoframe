@@ -1,0 +1,20 @@
+{
+    "timer": 25,
+    "enableTouch": true,
+    "showDate": true,
+    "showImgCount": true,
+    "showFolderName": true,
+    "showQrCode": true,
+    "sourceMode": "album",
+    "tagNames": ["Fotorahmen"],
+    "albumNames": ["Fotorahmen", "2025 - Hochzeit"],
+    "refreshInterval": 300,
+    "immich": {
+        "serverUrl": "http://192.168.16.7:2283",
+        "apiKeys": [
+            "uLbXvloXF79PXT1KDsKullH0iXmHGKuSjwSkHLrO6o",
+            "ajddWUAm0FqAuXHcSiU0RyWDScWc4inrbISjwDTWbE"
+        ]
+    }
+}
+
