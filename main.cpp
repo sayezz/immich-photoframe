@@ -76,6 +76,8 @@ static void initWindow(const std::string& name)
     XFixesHideCursor(dpy, DefaultRootWindow(dpy));
     // Also set an invisible pixmap cursor as belt-and-suspenders.
     hideCursorInWindow(dpy, DefaultRootWindow(dpy));
+    // Warp cursor to bottom-right corner so it's physically out of view.
+    XWarpPointer(dpy, None, DefaultRootWindow(dpy), 0, 0, 0, 0, 9999, 9999);
     XFlush(dpy);
 
     // Also hide on the OpenCV window itself once it appears.
@@ -306,9 +308,18 @@ int main()
     std::atomic<bool> watcherStop{false};
     std::thread watcherThread(watchConfig, std::string("config.json"), std::ref(watcherStop));
 
+    // Periodically warp cursor back to corner in case something moved it.
+    int warpCounter = 0;
+
     while (true) {
         int key = cv::waitKey(10);
         if (key == 27) break;  // ESC
+
+        if (gCursorDpy && ++warpCounter >= 100) {  // ~every 1 second
+            warpCounter = 0;
+            XWarpPointer(gCursorDpy, None, DefaultRootWindow(gCursorDpy), 0, 0, 0, 0, 9999, 9999);
+            XFlush(gCursorDpy);
+        }
 
         // ---- Config hot-reload -------------------------------------------
         if (gConfigChanged.exchange(false)) {
