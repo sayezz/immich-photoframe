@@ -17,6 +17,7 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/cursorfont.h>
+#include <X11/extensions/Xfixes.h>
 
 #include "json.hpp"
 #include "ImmichClient.h"
@@ -66,20 +67,36 @@ static void initWindow(const std::string& name)
     gScreenWidth  = screen->width;
     gScreenHeight = screen->height;
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    // Hide cursor globally using XFixes — persists at the X server level,
+    // cannot be overridden by the window manager or any other client.
+    XFixesHideCursor(dpy, DefaultRootWindow(dpy));
+    XFlush(dpy);
+    // Also set an invisible pixmap cursor as belt-and-suspenders.
+    hideCursorInWindow(dpy, DefaultRootWindow(dpy));
 
-    Window root = DefaultRootWindow(dpy), parent;
-    Window* children = nullptr; unsigned int n = 0;
-    if (XQueryTree(dpy, root, &root, &parent, &children, &n)) {
-        for (unsigned int i = 0; i < n; ++i) {
-            char* xname = nullptr;
-            if (XFetchName(dpy, children[i], &xname) && xname) {
-                if (name == xname) { hideCursorInWindow(dpy, children[i]); XFree(xname); break; }
-                XFree(xname);
+    // Also hide on the OpenCV window itself once it appears.
+    // Retry a few times in case the window hasn't been mapped yet.
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        Window root = DefaultRootWindow(dpy), parent;
+        Window* children = nullptr; unsigned int n = 0;
+        if (XQueryTree(dpy, root, &root, &parent, &children, &n)) {
+            for (unsigned int i = 0; i < n; ++i) {
+                char* xname = nullptr;
+                if (XFetchName(dpy, children[i], &xname) && xname) {
+                    if (name == xname) {
+                        hideCursorInWindow(dpy, children[i]);
+                        XFree(xname);
+                        if (children) XFree(children);
+                        goto done;
+                    }
+                    XFree(xname);
+                }
             }
+            if (children) XFree(children);
         }
-        if (children) XFree(children);
     }
+done:
     XCloseDisplay(dpy);
 }
 

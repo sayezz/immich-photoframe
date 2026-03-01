@@ -36,6 +36,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${QRENCODE_LIBRARIES}
     ${LIBCURL_LIBRARIES}
     ${X11_LIBRARIES}
+    ${X11_Xfixes_LIB}
     pthread
 )
 
