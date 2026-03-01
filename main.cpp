@@ -32,8 +32,9 @@ static bool gIsPressed    = false;
 static bool gPendingClick = false;
 static int  gClickX       = 0;
 static int  gClickY       = 0;
-static int  gScreenWidth  = 1920;
-static int  gScreenHeight = 1200;
+static int      gScreenWidth  = 1920;
+static int      gScreenHeight = 1200;
+static Display* gCursorDpy    = nullptr; // kept open to hold XFixesHideCursor
 
 static void onMouse(int event, int x, int y, int, void*)
 {
@@ -60,22 +61,24 @@ static void hideCursorInWindow(Display* dpy, Window win)
 
 static void initWindow(const std::string& name)
 {
-    Display* dpy = XOpenDisplay(nullptr);
-    if (!dpy) { std::cerr << "Cannot open X display\n"; return; }
+    // NOTE: gCursorDpy is intentionally never closed. XFixesHideCursor is
+    // reference-counted per client — closing the connection would undo the hide.
+    gCursorDpy = XOpenDisplay(nullptr);
+    if (!gCursorDpy) { std::cerr << "Cannot open X display\n"; return; }
+    Display* dpy = gCursorDpy;
 
     Screen* screen = DefaultScreenOfDisplay(dpy);
     gScreenWidth  = screen->width;
     gScreenHeight = screen->height;
 
-    // Hide cursor globally using XFixes — persists at the X server level,
-    // cannot be overridden by the window manager or any other client.
+    // Hide cursor at the X server level. Cannot be overridden by the WM.
+    // The connection must stay open for this to remain in effect.
     XFixesHideCursor(dpy, DefaultRootWindow(dpy));
-    XFlush(dpy);
     // Also set an invisible pixmap cursor as belt-and-suspenders.
     hideCursorInWindow(dpy, DefaultRootWindow(dpy));
+    XFlush(dpy);
 
     // Also hide on the OpenCV window itself once it appears.
-    // Retry a few times in case the window hasn't been mapped yet.
     for (int attempt = 0; attempt < 10; ++attempt) {
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
         Window root = DefaultRootWindow(dpy), parent;
@@ -88,7 +91,7 @@ static void initWindow(const std::string& name)
                         hideCursorInWindow(dpy, children[i]);
                         XFree(xname);
                         if (children) XFree(children);
-                        goto done;
+                        return;
                     }
                     XFree(xname);
                 }
@@ -96,8 +99,6 @@ static void initWindow(const std::string& name)
             if (children) XFree(children);
         }
     }
-done:
-    XCloseDisplay(dpy);
 }
 
 // ---------------------------------------------------------------------------
