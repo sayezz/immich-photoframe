@@ -7,7 +7,7 @@
     "showQrCode": true,
     "sourceMode": "album",
     "tagNames": ["Fotorahmen"],
-    "albumNames": ["Fotorahmen", "2025 - Hochzeit"],
+    "albumNames": ["Fotorahmen", "2025 - Hochzeit", "Weltreise"],
     "refreshInterval": 300,
     "immich": {
         "serverUrl": "http://192.168.16.7:2283",

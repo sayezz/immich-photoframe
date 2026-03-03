@@ -70,7 +70,7 @@ std::string ImmichClient::httpGet(const std::string& path)
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER,     headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,  writeString);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA,      &body);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT,        30L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT,        180L);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
     CURLcode res = curl_easy_perform(curl);
